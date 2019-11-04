@@ -1,6 +1,10 @@
-using VIEstimators
-using Test
+using Test, VIEstimators, Random, LinearAlgebra
 
-@testset "VIEstimators.jl" begin
-    # Write your own tests here.
+# Helper functionality for testing, primarily checking custom adjoints.
+include("test_util.jl")
+
+@testset "VIEstimators" begin
+    include("util.jl")
+    include("gaussian.jl")
+    include("elbo_estimators.jl")
 end
