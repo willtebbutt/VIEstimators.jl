@@ -26,7 +26,7 @@ using Random, Zygote, LinearAlgebra
     # Verify that the RPT∇ (and it's gradient) is correct in expectation when q is tight.
     @testset "RPT∇" begin
         ϕ = (μ=μ_p, A=A_p)
-        results = [STL∇(rng, q, ϕ, log_π_over_q) for _ in 1:100_000]
+        results = [RPT∇(rng, q, ϕ, log_π_over_q) for _ in 1:100_000]
         elbo = mean(first, results)
         ∂μ = mean(x->last(x).μ, results)
         ∂A = mean(x->last(x).A, results)
