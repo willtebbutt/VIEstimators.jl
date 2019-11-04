@@ -35,8 +35,8 @@ using Random, Zygote, LinearAlgebra
         @show ∂A
 
         @test elbo ≈ (logdet(chol_Σ_p) + D * log(2π)) / 2 rtol=1e-2 atol=1e-2
-        @test ∂μ ≈ zeros(size(∂μ)) rtol=1e-2 atol=1e-2
-        @test ∂A ≈ zeros(size(∂A)) rtol=1e-2 atol=1e-2
+        @test ∂μ ≈ zeros(size(∂μ)) rtol=1e-1 atol=1e-1
+        @test ∂A ≈ zeros(size(∂A)) rtol=1e-1 atol=1e-1
     end
 
     # Verify that gradient is zero using STL estimator when approximation tight.
