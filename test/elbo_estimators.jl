@@ -12,7 +12,7 @@ using Random, Zygote, LinearAlgebra
     end
 
     # Function to compute ratio of approx to target.
-    D = 11
+    D = 5
     μ_p = randn(rng, D)
     A_p = randn(rng, D, D)
     U_p = to_positive_definite_softplus(upper_triangular(A_p))
@@ -26,13 +26,10 @@ using Random, Zygote, LinearAlgebra
     # Verify that the RPT∇ (and it's gradient) is correct in expectation when q is tight.
     @testset "RPT∇" begin
         ϕ = (μ=μ_p, A=A_p)
-        results = [STL∇(rng, q, ϕ, log_π_over_q) for _ in 1:1_000_000]
+        results = [STL∇(rng, q, ϕ, log_π_over_q) for _ in 1:100_000]
         elbo = mean(first, results)
         ∂μ = mean(x->last(x).μ, results)
         ∂A = mean(x->last(x).A, results)
-
-        @show ∂μ
-        @show ∂A
 
         @test elbo ≈ (logdet(chol_Σ_p) + D * log(2π)) / 2 rtol=1e-2 atol=1e-2
         @test ∂μ ≈ zeros(size(∂μ)) rtol=1e-1 atol=1e-1
