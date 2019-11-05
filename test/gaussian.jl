@@ -53,4 +53,30 @@ using Distributions
         @test logpdf(X, y) ≈ logpdf(X.x1, y.x1) + logpdf(X.x2, y.x2)
         @test logpdf(X, Y) ≈ logpdf(X.x1, Y.x1) + logpdf(X.x2, Y.x2)
     end
+    @testset "natural parameters" begin
+        rng = MersenneTwister(123456)
+        D = 3
+        m = randn(rng, D)
+        A = randn(rng, D, D)
+        S = A'A + I
+
+        θ₁, θ₂ = standard_to_natural(m, S)
+        m′, S′ = natural_to_standard(θ₁, θ₂)
+
+        @test m ≈ m′
+        @test S ≈ S′
+    end
+    @testset "expectation parameters" begin
+        rng = MersenneTwister(123456)
+        D = 3
+        m = randn(rng, D)
+        A = randn(rng, D, D)
+        S = A'A + I
+
+        θ₁, θ₂ = standard_to_expectation(m, S)
+        m′, S′ = expectation_to_standard(θ₁, θ₂)
+
+        @test m ≈ m′
+        @test S ≈ S′
+    end
 end

@@ -1,4 +1,5 @@
-export to_positive_definite, to_positive_definite_softplus, upper_triangular
+export to_positive_definite, to_positive_definite_softplus, to_positive_definite_square,
+    upper_triangular
 
 
 # Copy-Paste some util from Stheno.jl
@@ -47,6 +48,28 @@ ZygoteRules.@adjoint function to_positive_definite_softplus(U::UpperTriangular)
     return out, function(Δ::AbstractMatrix)
         out_back = copy(Δ)
         out_back[diagind(out_back)] .= diag(Δ) .* logistic.(diag(U))
+        return (out_back,)
+    end
+end
+
+
+
+"""
+    to_positive_definite_square(U::UpperTriangular)
+
+Square the diagonal of `U` so that `U'U` is positive definite.
+"""
+function to_positive_definite_square(U::UpperTriangular)
+    new_data = copy(U.data)
+    new_data[diagind(new_data)] .= abs2.(diag(new_data)) .+ 1e-12
+    return UpperTriangular(new_data)
+end
+
+ZygoteRules.@adjoint function to_positive_definite_square(U::UpperTriangular)
+    out = to_positive_definite_square(U)
+    return out, function(Δ::AbstractMatrix)
+        out_back = copy(Δ)
+        out_back[diagind(out_back)] .= 2 .* diag(Δ) .* diag(U)
         return (out_back,)
     end
 end
