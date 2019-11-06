@@ -92,8 +92,7 @@ end
 Convert from natural to standard parametrisation.
 """
 function natural_to_standard(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
-    C = cholesky((-2) .* θ₂)
-    S = inv(C)
+    S = inv(cholesky((-2) .* θ₂))
     return S * θ₁, S
 end
 
