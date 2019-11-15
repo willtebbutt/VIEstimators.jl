@@ -1,5 +1,5 @@
 export to_positive_definite, to_positive_definite_softplus, to_positive_definite_square,
-    upper_triangular
+    upper_triangular, to_positive_definite_softplus_inv
 
 
 # Copy-Paste some util from Stheno.jl
@@ -50,6 +50,17 @@ ZygoteRules.@adjoint function to_positive_definite_softplus(U::UpperTriangular)
         out_back[diagind(out_back)] .= diag(Δ) .* logistic.(diag(U))
         return (out_back,)
     end
+end
+
+"""
+    to_positive_definite_softplus_inv(U::UpperTriangular)
+
+Inverse of to_positive_definite_softplus.
+"""
+function to_positive_definite_softplus_inv(U::UpperTriangular)
+    new_data = copy(U.data)
+    new_data[diagind(new_data)] .= invsoftplus.(diag(new_data) .- 1e-12)
+    return UpperTriangular(new_data)
 end
 
 

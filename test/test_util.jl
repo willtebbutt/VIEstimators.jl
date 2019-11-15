@@ -1,4 +1,4 @@
-using FiniteDifferences
+using FiniteDifferences, ChainRulesCore
 
 # Make FiniteDifferences work with some of the types in this package. Shame this isn't
 # automated...
@@ -80,4 +80,49 @@ function print_adjoints(adjoint_ad, adjoint_fd, rtol, atol)
     rel_err = abs_err ./ adjoint_ad
     display([adjoint_ad adjoint_fd abs_err rel_err])
     println()
+end
+
+
+const _fdm = central_fdm(5, 1)
+
+function ensure_not_running_on_functor(f, name)
+    # if x itself is a Type, then it is a constructor, thus not a functor.
+    # This also catchs UnionAll constructors which have a `:var` and `:body` fields
+    f isa Type && return
+
+    if fieldcount(typeof(f)) > 0
+        throw(ArgumentError(
+            "$name cannot be used on closures/functors (such as $f)"
+        ))
+    end
+end
+
+"""
+    frule_test(f, (x, ẋ)...; rtol=1e-9, atol=1e-9, fdm=central_fdm(5, 1), kwargs...)
+# Arguments
+- `f`: Function for which the `frule` should be tested.
+- `x`: input at which to evaluate `f` (should generally be set to an arbitary point in the domain).
+- `ẋ`: differential w.r.t. `x` (should generally be set randomly).
+All keyword arguments except for `fdm` are passed to `isapprox`.
+"""
+function frule_test(f, (x, ẋ); rtol=1e-9, atol=1e-9, fdm=_fdm, kwargs...)
+    return frule_test(f, ((x, ẋ),); rtol=rtol, atol=atol, fdm=fdm, kwargs...)
+end
+
+function frule_test(f, xẋs::Tuple{Any, Any}...; rtol=1e-9, atol=1e-9, fdm=_fdm, kwargs...)
+    ensure_not_running_on_functor(f, "frule_test")
+    xs, ẋs = collect(zip(xẋs...))
+    Ω, pushforward = ChainRulesCore.frule(f, xs...)
+    @test f(xs...) == Ω
+    dΩ_ad = pushforward(NamedTuple(), ẋs...)
+
+    # Correctness testing via finite differencing.
+    dΩ_fd = jvp(fdm, xs->f(xs...), (xs, ẋs))
+    @test isapprox(
+        collect(dΩ_ad),  # Use collect so can use vector equality
+        collect(dΩ_fd);
+        rtol=rtol,
+        atol=atol,
+        kwargs...
+    )
 end

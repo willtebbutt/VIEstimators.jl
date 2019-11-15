@@ -20,6 +20,10 @@ using Zygote
             UpperTriangular(randn(rng, D, D)),
             A,
         )
+
+        if to_psd === to_positive_definite_softplus
+            @test to_positive_definite_softplus_inv(V) ≈ U
+        end
     end
     @testset "upper_triangular" begin
         rng = MersenneTwister(123456)

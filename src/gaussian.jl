@@ -5,7 +5,11 @@ export Gaussian, normal_logpdf, StandardGaussian, GaussianPair, logpdf
 export standard_to_natural, natural_to_standard
 export standard_to_expectation, expectation_to_standard
 export expectation_to_natural, natural_to_expectation
+export standard_to_unconstrained, unconstrained_to_standard
+export natural_to_unconstrained, unconstrained_to_natural
+export expectation_to_unconstrained, unconstrained_to_expectation
 
+import ChainRulesCore: frule
 
 
 """
@@ -91,6 +95,10 @@ end
 
 
 
+#
+# Constrained parametrisations.
+#
+
 """
     natural_to_standard(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
 
@@ -99,6 +107,23 @@ Convert from natural to standard parametrisation.
 function natural_to_standard(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
     S = inv(cholesky((-2) .* θ₂))
     return S * θ₁, S
+end
+
+# forwards-mode rule for natural_to_standard. Avoids some repeated computation.
+function frule(
+    ::typeof(natural_to_standard),
+    θ₁::AbstractVector{<:Real},
+    θ₂::AbstractMatrix{<:Real},
+)
+    C = cholesky(Symmetric(-θ₂))
+    S = inv(C) ./ 2
+    m = S * θ₁
+    function natural_to_standard_pushforward(Δself, Δθ₁, Δθ₂)
+        ΔS = (C \ Matrix((C \ Δθ₂')')) ./ 2
+        Δm = ΔS * θ₁ + S * Δθ₁
+        return (Δm, ΔS)
+    end
+    return (m, S), natural_to_standard_pushforward
 end
 
 """
@@ -145,4 +170,83 @@ Convert from natural to expectation parametrisation.
 """
 function natural_to_expectation(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
     return standard_to_expectation(natural_to_standard(θ₁, θ₂)...)
+end
+
+
+
+#
+# Unconstrained parametrisations.
+#
+
+"""
+    standard_to_unconstrained(m::AbstractVector{<:Real}, S::AbstractMatrix{<:Real})
+
+Convert from standard to mean and unconstrained upper-triangular matrix.
+"""
+function standard_to_unconstrained(m::AbstractVector{<:Real}, S::AbstractMatrix{<:Real})
+    return m, to_positive_definite_softplus_inv(cholesky(Symmetric(S)).U)
+end
+
+function frule(
+    ::typeof(standard_to_unconstrained),
+    m::AbstractVector{<:Real},
+    S::AbstractMatrix{<:Real},
+)
+    function standard_to_unconstrained_pushforward(Δself, Δm, ΔS)
+        
+        return (Δm, )
+    end
+    return standard_to_unconstrained(m, S), standard_to_unconstrained_pushforward
+end
+
+"""
+    unconstrained_to_standard(m::AbstractVector{<:Real}, U::UpperTriangular{<:Real})
+
+Convert from mean + unconstrained upper-triangular matrix to standard parametrisation.
+"""
+function unconstrained_to_standard(m::AbstractVector{<:Real}, U::UpperTriangular{<:Real})
+    return m, Matrix(Cholesky(to_positive_definite_softplus(U), 'U', 0))
+end
+
+
+"""
+    natural_to_unconstrained(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
+
+Convert from natural to mean and unconstrained upper-triangular matrix.
+"""
+function natural_to_unconstrained(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
+    return standard_to_unconstrained(natural_to_standard(θ₁, θ₂)...)
+end
+
+"""
+    unconstrained_to_natural(m::AbstractVector{<:Real}, U::AbstractMatrix{<:Real})
+
+Convert from mean and unconstrained upper-triangular matrix to natural.
+"""
+function unconstrained_to_natural(m::AbstractVector{<:Real}, U::UpperTriangular{<:Real})
+    return standard_to_natural(unconstrained_to_standard(m, U)...)
+end
+
+"""
+    expectation_to_unconstrained(η₁::AbstractVector{<:Real}, η₂::AbstractMatrix{<:Real})
+
+Convert from expecation parameters to mean and unconstrained upper-triangular matrix.
+"""
+function expectation_to_unconstrained(
+    η₁::AbstractVector{<:Real},
+    η₂::AbstractMatrix{<:Real},
+)
+    return standard_to_unconstrained(expectation_to_standard(η₁, η₂)...)
+end
+
+"""
+    unconstrained_to_expectation(η₁::AbstractVector{<:Real}, η₂::AbstractMatrix{<:Real})
+
+Convert from expecation parameters to mean and unconstrained upper-triangular matrix.
+"""
+function unconstrained_to_expectation(
+    m::AbstractVector{<:Real},
+    U::UpperTriangular{<:Real},
+)
+    return standard_to_expectation(unconstrained_to_standard(m, U)...)
 end

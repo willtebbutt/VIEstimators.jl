@@ -65,41 +65,91 @@ using Distributions
 
         @test m ≈ m′
         @test S ≈ S′
+
+        Δθ₁ = randn(rng, D)
+
+        A_ = randn(rng, D, D)
+        Δθ₂ = A_ * A_' + I
+        frule_test(natural_to_standard, (θ₁, Δθ₁), (θ₂, Δθ₂); fdm=backward_fdm(5, 1))
     end
-    @testset "expectation parameters" begin
-        rng = MersenneTwister(123456)
-        D = 3
-        m = randn(rng, D)
-        A = randn(rng, D, D)
-        S = A'A + I
+    # @testset "expectation parameters" begin
+    #     rng = MersenneTwister(123456)
+    #     D = 3
+    #     m = randn(rng, D)
+    #     A = randn(rng, D, D)
+    #     S = A'A + I
 
-        θ₁, θ₂ = standard_to_expectation(m, S)
-        m′, S′ = expectation_to_standard(θ₁, θ₂)
+    #     θ₁, θ₂ = standard_to_expectation(m, S)
+    #     m′, S′ = expectation_to_standard(θ₁, θ₂)
 
-        @test m ≈ m′
-        @test S ≈ S′
-    end
-    @testset "expectation / natural parameters conversions" begin
-        rng = MersenneTwister(123456)
-        D = 3
-        m = randn(rng, D)
-        A = randn(rng, D, D)
-        S = A'A + I
+    #     @test m ≈ m′
+    #     @test S ≈ S′
+    # end
+    # @testset "expectation / natural parameters conversions" begin
+    #     rng = MersenneTwister(123456)
+    #     D = 3
+    #     m = randn(rng, D)
+    #     A = randn(rng, D, D)
+    #     S = A'A + I
 
-        @testset "natural to expectation" begin
-            θ₁, θ₂ = standard_to_natural(m, S)
-            η₁, η₂ = natural_to_expectation(θ₁, θ₂)
-            m′, S′ = expectation_to_standard(η₁, η₂)
-            @test m ≈ m′
-            @test S ≈ S′
-        end
+    #     @testset "natural to expectation" begin
+    #         θ₁, θ₂ = standard_to_natural(m, S)
+    #         η₁, η₂ = natural_to_expectation(θ₁, θ₂)
+    #         m′, S′ = expectation_to_standard(η₁, η₂)
+    #         @test m ≈ m′
+    #         @test S ≈ S′
+    #     end
 
-        @testset "expectation to natural" begin
-            η₁, η₂ = standard_to_expectation(m, S)
-            θ₁, θ₂ = expectation_to_natural(η₁, η₂)
-            m′, S′ = natural_to_standard(θ₁, θ₂)
-            @test m ≈ m′
-            @test S ≈ S′
-        end
-    end
+    #     @testset "expectation to natural" begin
+    #         η₁, η₂ = standard_to_expectation(m, S)
+    #         θ₁, θ₂ = expectation_to_natural(η₁, η₂)
+    #         m′, S′ = natural_to_standard(θ₁, θ₂)
+    #         @test m ≈ m′
+    #         @test S ≈ S′
+    #     end
+    # end
+    # @testset "unconstrained" begin
+    #     rng = MersenneTwister(123456)
+    #     D = 3
+    #     m = randn(rng, D)
+    #     U = UpperTriangular(randn(rng, D, D))
+
+    #     @testset "standard is psd" begin
+    #         _, S = unconstrained_to_standard(m, U)
+    #         @test all(eigvals(S) .> 0)
+    #     end
+    #     @testset "standard_to_unconstrained" begin
+    #         m′, U′ = standard_to_unconstrained(unconstrained_to_standard(m, U)...)
+    #         @test m ≈ m′
+    #         @test U ≈ U′
+    #     end
+    #     @testset "natural is nsd" begin
+    #         θ₁, θ₂ = unconstrained_to_natural(m, U)
+    #         @test all(eigvals(θ₂) .< 0)
+    #     end
+    #     @testset "natural_to_unconstrained" begin
+    #         m′, U′ = natural_to_unconstrained(unconstrained_to_natural(m, U)...)
+    #         @test m ≈ m′
+    #         @test U ≈ U′
+
+    #         θ₁, θ₂ = unconstrained_to_natural(m, U)
+    #         θ₁_comp, θ₂_comp = standard_to_natural(unconstrained_to_standard(m, U)...)
+    #         @test θ₁_comp ≈ θ₁
+    #         @test θ₂_comp ≈ θ₂
+    #     end
+    #     @testset "expectation is psd" begin
+    #         _, S = unconstrained_to_expectation(m, U)
+    #         @test all(eigvals(S) .> 0)
+    #     end
+    #     @testset "expectation_to_unconstrained" begin
+    #         m′, U′ = expectation_to_unconstrained(unconstrained_to_expectation(m, U)...)
+    #         @test m ≈ m′
+    #         @test U ≈ U′
+
+    #         η₁, η₂ = unconstrained_to_expectation(m, U)
+    #         η₁_comp, η₂_comp = standard_to_expectation(unconstrained_to_standard(m, U)...)
+    #         @test η₁ ≈ η₁_comp
+    #         @test η₂ ≈ η₂_comp
+    #     end
+    # end
 end
