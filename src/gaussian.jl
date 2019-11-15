@@ -4,6 +4,9 @@ import Base: length
 export Gaussian, normal_logpdf, StandardGaussian, GaussianPair, logpdf
 export standard_to_natural, natural_to_standard
 export standard_to_expectation, expectation_to_standard
+export expectation_to_natural, natural_to_expectation
+
+
 
 """
     Gaussian{Tm, Tchol_Σ<:Cholesky}
@@ -38,6 +41,8 @@ logpdf(x::Gaussian, y::AbstractVector{<:Real}) = logpdf(x, reshape(y, :, 1))[1]
 function normal_logpdf(y, m, σ)
     return .-(log(2π) .+ 2 .* log.(σ) .+ ((y .- m) ./ σ).^2) ./ 2
 end
+
+
 
 """
     StandardGaussian
@@ -122,4 +127,22 @@ Convert from standard to natural parametrisation.
 """
 function standard_to_expectation(m::AbstractVector{<:Real}, S::AbstractMatrix{<:Real})
     return m, S + m * m'
+end
+
+"""
+    expectation_to_natural(η₁::AbstractVector{<:Real}, η₂::AbstractMatrix{<:Real})
+
+Convert from expectation to natural parameters.
+"""
+function expectation_to_natural(η₁::AbstractVector{<:Real}, η₂::AbstractMatrix{<:Real})
+    return standard_to_natural(expectation_to_standard(η₁, η₂)...)
+end
+
+"""
+    natural_to_expectation(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
+
+Convert from natural to expectation parametrisation.
+"""
+function natural_to_expectation(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
+    return standard_to_expectation(natural_to_standard(θ₁, θ₂)...)
 end
