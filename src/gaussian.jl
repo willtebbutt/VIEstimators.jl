@@ -9,7 +9,6 @@ export standard_to_unconstrained, unconstrained_to_standard
 export natural_to_unconstrained, unconstrained_to_natural
 export expectation_to_unconstrained, unconstrained_to_expectation
 
-import ChainRulesCore: frule
 
 
 """
@@ -105,7 +104,7 @@ end
 Convert from natural to standard parametrisation.
 """
 function natural_to_standard(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
-    S = inv(cholesky((-2) .* θ₂))
+    S = inv(cholesky(Symmetric(-θ₂))) ./ 2
     return S * θ₁, S
 end
 
@@ -184,7 +183,7 @@ end
 Convert from standard to mean and unconstrained upper-triangular matrix.
 """
 function standard_to_unconstrained(m::AbstractVector{<:Real}, S::AbstractMatrix{<:Real})
-    return m, to_positive_definite_softplus_inv(cholesky(Symmetric(S)).U)
+    return m, to_positive_definite_softplus_inv(chol(Symmetric(S)))
 end
 
 function frule(
@@ -192,11 +191,17 @@ function frule(
     m::AbstractVector{<:Real},
     S::AbstractMatrix{<:Real},
 )
+    # Perform forwards-pass and retain information required to compute pushforward.
+    U, pushforward_U = frule(chol, Symmetric(S))
+    V, pushforward_V = frule(to_positive_definite_softplus_inv, U)
+
     function standard_to_unconstrained_pushforward(Δself, Δm, ΔS)
-        
-        return (Δm, )
+        ΔU = pushforward_U(DoesNotExist(), ΔS)
+        ΔV = pushforward_V(DoesNotExist(), ΔU)
+        return (Δm, ΔV)
     end
-    return standard_to_unconstrained(m, S), standard_to_unconstrained_pushforward
+
+    return (m, V), standard_to_unconstrained_pushforward
 end
 
 """
@@ -216,6 +221,21 @@ Convert from natural to mean and unconstrained upper-triangular matrix.
 """
 function natural_to_unconstrained(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
     return standard_to_unconstrained(natural_to_standard(θ₁, θ₂)...)
+end
+
+function frule(
+    ::typeof(natural_to_unconstrained),
+    θ₁::AbstractVector{<:Real},
+    θ₂::AbstractMatrix{<:Real},
+)
+    (m_, S), pushforward_standard = frule(natural_to_standard, θ₁, θ₂)
+    (m, U), pushforward_unconstrained = frule(standard_to_unconstrained, m_, S)
+
+    function pushforward_natural_to_unconstrained(Δself, Δθ₁, Δθ₂)
+        Δm_, ΔS = pushforward_standard(DoesNotExist(), Δθ₁, Δθ₂)
+        return pushforward_unconstrained(DoesNotExist(), Δm_, ΔS)
+    end
+    return (m, U), pushforward_natural_to_unconstrained
 end
 
 """

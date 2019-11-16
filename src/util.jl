@@ -63,6 +63,18 @@ function to_positive_definite_softplus_inv(U::UpperTriangular)
     return UpperTriangular(new_data)
 end
 
+function frule(::typeof(to_positive_definite_softplus_inv), U::UpperTriangular)
+    V = to_positive_definite_softplus_inv(U)
+    function to_positive_definite_softplus_inv_pushforward(Δself, ΔU::AbstractMatrix)
+        return to_positive_definite_softplus_inv_pushforward(Δself, UpperTriangular(ΔU))
+    end
+    function to_positive_definite_softplus_inv_pushforward(Δself, ΔU::UpperTriangular)
+        new_data = copy(ΔU.data)
+        new_data[diagind(new_data)] .= exp.(log.(diag(new_data)) .+ diag(U) .- diag(V))
+        return UpperTriangular(new_data)
+    end
+    return V, to_positive_definite_softplus_inv_pushforward
+end
 
 
 """
@@ -98,4 +110,23 @@ upper_triangular(A::Matrix) = UpperTriangular(A)
 
 ZygoteRules.@adjoint function upper_triangular(A::Matrix)
     return upper_triangular(A), Δ->(collect(UpperTriangular(Δ)),)
+end
+
+
+
+#
+# frule for cholesky
+#
+
+chol(A::Symmetric) = cholesky(A).U
+
+function frule(::typeof(chol), A::Symmetric{T, Matrix{T}} where {T<:Real})
+    U = chol(A)
+    function chol_pushforward(Δself, ΔA)
+        T = U' \ (U' \ ΔA')'
+        T = UpperTriangular(T)
+        T[diagind(T)] ./= 2
+        return T * U
+    end
+    return U, chol_pushforward
 end
