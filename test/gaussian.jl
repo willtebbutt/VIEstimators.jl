@@ -246,5 +246,47 @@ using Distributions, Zygote
             norm_2 = dot(m̄, Δm_nat) + dot(Ū, ΔU_nat)
             @show norm_2
         end
+        @testset "positive definite tests" begin
+            rng = MersenneTwister(123456)
+            D = 2
+
+            # Construct natural parameters and convert to vector.
+            m = randn(rng, D)
+            U = UpperTriangular(randn(rng, D, D))
+            θ₁, θ₂ = unconstrained_to_natural(m, U)
+            θ = vec(hcat(θ₁, θ₂))
+
+            function expectation_par_vec(θ)
+                θ₁ = θ[1:D]
+                θ₂ = reshape(θ[D+1:end], D, D)
+                η₁, η₂ = natural_to_expectation(θ₁, θ₂)
+                return vec(hcat(η₁, η₂))
+            end
+
+            J = Matrix{Float64}(undef, length(θ), length(θ))
+            for d in eachindex(θ)
+
+                # Define dth seed for reverse-pass.
+                Δη = zeros(length(θ))
+                Δη[d] = 1.0
+
+                # Compute dth column of J
+                η, back = Zygote.forward(expectation_par_vec, θ)
+                Δθ = first(back(Δη))
+                J[:, d] .= Δθ
+            end
+
+            display(J)
+            println()
+
+            @test J ≈ J'
+            @test all(eigvals(Symmetric(J)) .> 0)
+
+            display(eigvals(Symmetric(J)))
+            println()
+
+            display(J - J')
+            println()
+        end
     end
 end

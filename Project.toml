@@ -15,7 +15,7 @@ ZygoteRules = "700de1a5-db45-46bc-99cf-38207098b444"
 
 [compat]
 Distributions = "~0.21"
-FiniteDifferences = "0.8"
+FiniteDifferences = "0.9"
 StatsFuns = "~0.8"
 Zygote = "~0.3.4"
 ZygoteRules = "~0.1.0"
