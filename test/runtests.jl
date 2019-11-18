@@ -4,7 +4,7 @@ using Test, VIEstimators, Random, LinearAlgebra
 include("test_util.jl")
 
 @testset "VIEstimators" begin
-    include("util.jl")
+    # include("util.jl")
     include("gaussian.jl")
     # include("elbo_estimators.jl")
 end

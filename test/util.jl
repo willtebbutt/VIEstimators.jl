@@ -42,7 +42,7 @@ using VIEstimators: chol
     end
     @testset "chol" begin
         rng = MersenneTwister(123456)
-        D = 2
+        D = 3
 
         # Check correctness of chol. Should be trivial.
         U_A = to_positive_definite_softplus(UpperTriangular(randn(rng, D, D)))
@@ -53,5 +53,12 @@ using VIEstimators: chol
         ΔU_A = to_positive_definite_softplus(UpperTriangular(randn(rng, D, D)))
         ΔA = Symmetric(ΔU_A'ΔU_A)
         frule_test(chol, (A, ΔA); fdm=forward_fdm(5, 1))
+    end
+    @testset "inv(::Cholesky)" begin
+        rng = MersenneTwister(123456)
+        D = 3
+
+        A = randn(rng, D, D)
+        adjoint_test(A->inv(cholesky(Symmetric(A'A + I))), randn(rng, D, D), A)
     end
 end

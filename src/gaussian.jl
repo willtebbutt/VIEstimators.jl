@@ -104,7 +104,9 @@ end
 Convert from natural to standard parametrisation.
 """
 function natural_to_standard(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
-    S = inv(cholesky(Symmetric(-θ₂))) ./ 2
+    t1 = Symmetric(-θ₂)
+    t2 = cholesky(t1)
+    S = inv(t2) ./ 2
     return S * θ₁, S
 end
 
@@ -131,7 +133,7 @@ end
 Convert from standard to natural parametrisation.
 """
 function standard_to_natural(m::AbstractVector{<:Real}, S::AbstractMatrix{<:Real})
-    C = cholesky(S)
+    C = cholesky(Symmetric(S))
     return C \ m, inv(C) ./ (-2)
 end
 
@@ -210,7 +212,8 @@ end
 Convert from mean + unconstrained upper-triangular matrix to standard parametrisation.
 """
 function unconstrained_to_standard(m::AbstractVector{<:Real}, U::UpperTriangular{<:Real})
-    return m, Matrix(Cholesky(to_positive_definite_softplus(U), 'U', 0))
+    UA = to_positive_definite_softplus(U)
+    return m, UA'UA
 end
 
 
