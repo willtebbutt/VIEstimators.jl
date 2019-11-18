@@ -256,39 +256,164 @@ using Distributions, Zygote
             θ₁, θ₂ = unconstrained_to_natural(m, U)
             θ = vec(hcat(θ₁, θ₂))
 
+            m, S = unconstrained_to_standard(m, U)
+            θ_std = vec(hcat(m, S))
+
+            println("vals")
+            display(θ₁)
+            println()
+            display(θ₂)
+            println()
+
             function expectation_par_vec(θ)
                 θ₁ = θ[1:D]
                 θ₂ = reshape(θ[D+1:end], D, D)
-                η₁, η₂ = natural_to_expectation(θ₁, θ₂)
+                η₁, η₂ = Zygote.@showgrad(natural_to_expectation(θ₁, θ₂))
                 return vec(hcat(η₁, η₂))
             end
 
-            J = Matrix{Float64}(undef, length(θ), length(θ))
+            function expectation_mat_vec(θ₂)
+                _, η₂ = natural_to_expectation(zeros(D), reshape(θ₂, D, D))
+                return vec(η₂)
+            end
+
+            function natural_to_standard_vec(θ)
+                m = θ[1:D]
+                S = reshape(θ[D+1:end], D, D)
+                η₁, η₂ = Zygote.@showgrad(natural_to_standard(m, S))
+                return vec(hcat(η₁, η₂))
+            end
+
+            function standard_to_expectation_vec(θ)
+                θ₁ = θ[1:D]
+                θ₂ = reshape(θ[D+1:end], D, D)
+                η₁, η₂ = Zygote.@showgrad(standard_to_expectation(θ₁, θ₂))
+                return vec(hcat(η₁, η₂))
+            end
+
+            # J = Matrix{Float64}(undef, length(θ), length(θ))
+            # for d in eachindex(θ)
+
+            #     println("d = $d")
+
+
+            #     # Define dth seed for reverse-pass.
+            #     Δη = zeros(length(θ))
+            #     Δη[d] = 1.0
+
+            #     # Compute dth column of J
+            #     _, back = Zygote.forward(expectation_par_vec, θ)
+            #     Δθ = first(back(Δη))
+            #     J[:, d] .= Δθ
+
+            #     println()
+            #     println()
+            #     println()
+            # end
+
+            # display(eigvals(Symmetric(J)))
+            # println()
+
+            # display(J')
+            # println()
+
+            # v = randn(length(θ))
+            # _, back = Zygote.forward(expectation_par_vec, θ)
+            # @test first(back(v))'v ≈ v' * (J * v)
+
+            # @test J ≈ J'
+            # @test all(eigvals(Symmetric(J)) .> 0)
+
+
+            # J_mat = Matrix{Float64}(undef, length(θ₂), length(θ₂))
+            # for d in eachindex(θ₂)
+
+            #     # Define dth seed for reverse-pass.
+            #     Δη = zeros(length(θ₂))
+            #     Δη[d] = 1.0
+
+            #     # Compute dth column of J
+            #     _, back = Zygote.forward(expectation_mat_vec, vec(θ₂))
+            #     Δθ₂ = first(back(Δη))
+            #     J_mat[:, d] .= Δθ₂
+            # end
+
+            # @show "J_mat stuff"
+
+            # display(J_mat)
+            # println()
+
+            # display(J_mat - J_mat')
+            # println()
+
+            # Check that stuff composes.
+
+            J_stn = Matrix{Float64}(undef, length(θ), length(θ))
             for d in eachindex(θ)
+
+                println("d = $d")
+
 
                 # Define dth seed for reverse-pass.
                 Δη = zeros(length(θ))
                 Δη[d] = 1.0
 
                 # Compute dth column of J
-                η, back = Zygote.forward(expectation_par_vec, θ)
+                _, back = Zygote.forward(natural_to_standard_vec, θ)
                 Δθ = first(back(Δη))
-                J[:, d] .= Δθ
+                J_stn[:, d] .= Δθ
+
+                println()
+                println()
+                println()
             end
 
+            J_exp = Matrix{Float64}(undef, length(θ), length(θ))
+            for d in eachindex(θ)
+
+                println("d = $d")
 
 
-            @test J ≈ J'
-            @test all(eigvals(Symmetric(J)) .> 0)
+                # Define dth seed for reverse-pass.
+                Δη = zeros(length(θ))
+                Δη[d] = 1.0
 
-            display(eigvals(Symmetric(J)))
+                # Compute dth column of J
+                _, back = Zygote.forward(standard_to_expectation_vec, θ_std)
+                Δθ = first(back(Δη))
+                J_exp[:, d] .= Δθ
+
+                println()
+                println()
+                println()
+            end
+
+            display(J_exp')
             println()
 
-            display(J - J')
+            display(θ₁)
+            println()
+            display(-inv(θ₂) ./ 2)
             println()
 
-            display(J)
+            display(J_stn')
             println()
+
+            for d in eachindex(θ₂)
+
+                println("d = $d")
+                Δη = zeros(length(θ₂))
+                Δη[d] = 1.0
+                Δη = reshape(Δη, D, D)
+                display(- inv(θ₂) * Δη * inv(θ₂) ./ 4)
+                println()
+            end
+
+            # display(J_exp' * J_stn')
+            # println()
+
+            # display(J_exp' * J_stn' - J')
+            # println()
         end
     end
 end

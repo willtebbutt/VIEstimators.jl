@@ -104,10 +104,13 @@ end
 Convert from natural to standard parametrisation.
 """
 function natural_to_standard(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
-    t1 = Symmetric(-θ₂)
-    t2 = cholesky(t1)
-    S = inv(t2) ./ 2
-    return S * θ₁, S
+    # t1 = Symmetric(-θ₂)
+    # # t1 = -θ₂
+    # t2 = cholesky(t1)
+    # S = inv(t2) ./ 2
+    S_ = chol_inv(-2 .* Zygote.@showgrad(θ₂))
+    S = Zygote.@showgrad(S_)
+    return Zygote.@showgrad(S * θ₁), Zygote.@showgrad(S)
 end
 
 # forwards-mode rule for natural_to_standard. Avoids some repeated computation.
@@ -152,7 +155,8 @@ end
 Convert from standard to natural parametrisation.
 """
 function standard_to_expectation(m::AbstractVector{<:Real}, S::AbstractMatrix{<:Real})
-    return m, S + m * m'
+    println(m)
+    return m, S + Zygote.@showgrad(m * m')
 end
 
 """
@@ -170,7 +174,9 @@ end
 Convert from natural to expectation parametrisation.
 """
 function natural_to_expectation(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
-    return standard_to_expectation(natural_to_standard(θ₁, θ₂)...)
+    m, S = Zygote.@showgrad(natural_to_standard(θ₁, θ₂))
+    η₁, η₂ = Zygote.@showgrad(standard_to_expectation(m, S))
+    return η₁, η₂
 end
 
 

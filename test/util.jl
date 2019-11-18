@@ -61,4 +61,21 @@ using VIEstimators: chol
         A = randn(rng, D, D)
         adjoint_test(A->inv(cholesky(Symmetric(A'A + I))), randn(rng, D, D), A)
     end
+    @testset "chol_inv(::AbstractMatrix{<:Real})" begin
+        rng = MersenneTwister(123456)
+        D = 3
+
+        A = randn(rng, D, D)
+        S = collect(Symmetric(A'A + I))
+        ΔS = randn(rng, D, D)
+
+        S_inv, back_inv = Zygote.forward(inv, S)
+        Δ_inv = first(back_inv(ΔS))
+
+        S_chol_inv, back_chol_inv = Zygote.forward(VIEstimators.chol_inv, S)
+        Δ_chol_inv = first(back_chol_inv(ΔS))
+
+        @test S_inv ≈ S_chol_inv
+        @test Δ_inv ≈ Δ_chol_inv
+    end
 end

@@ -143,3 +143,17 @@ ZygoteRules.@adjoint function inv(C::Cholesky{<:Real})
         return ((factors=UpperTriangular(-(C.U' \ (Δ + Δ')) * Cinv),),)
     end
 end
+
+
+
+#
+# Helper functionality to make reverse-mode compute the correct thing...
+#
+
+chol_inv(S::AbstractMatrix{<:Real}) = inv(cholesky(-S))
+
+# Specialised rrule for natural_to_standard. This does things in a slightly strange way.
+ZygoteRules.@adjoint function chol_inv(S::AbstractMatrix{<:Real})
+    Sinv = inv(cholesky(S))
+    return Sinv, Δ::AbstractMatrix{<:Real} -> (-Sinv'Δ * Sinv',)
+end
