@@ -188,64 +188,64 @@ using Distributions, Zygote
         #     @test η₁ ≈ η₁_comp
         #     @test η₂ ≈ η₂_comp
         # end
-        @testset "natural gradient tests" begin
-            rng = MersenneTwister(123456)
-            D = 3
-            η̄₁, η̄₂ = randn(rng, D), randn(rng, D, D)
-            η̄ = hcat(η̄₁, η̄₂)
+        # @testset "natural gradient tests" begin
+        #     rng = MersenneTwister(123456)
+        #     D = 3
+        #     η̄₁, η̄₂ = randn(rng, D), randn(rng, D, D)
+        #     η̄ = hcat(η̄₁, η̄₂)
 
-            m, U = randn(rng, D), UpperTriangular(randn(rng, D, D))
-            _, S = unconstrained_to_standard(m, U)
-            θ₁, θ₂ = unconstrained_to_natural(m, U)
+        #     m, U = randn(rng, D), UpperTriangular(randn(rng, D, D))
+        #     _, S = unconstrained_to_standard(m, U)
+        #     θ₁, θ₂ = unconstrained_to_natural(m, U)
 
-            adjoint_test(
-                (θ₁, θ₂) -> hcat(natural_to_expectation(θ₁, θ₂)...),
-                η̄, θ₁, θ₂,
-            )
+        #     adjoint_test(
+        #         (θ₁, θ₂) -> hcat(natural_to_expectation(θ₁, θ₂)...),
+        #         η̄, θ₁, θ₂,
+        #     )
 
-            adjoint_test(
-                (m, S) -> hcat(standard_to_expectation(m, S)...),
-                η̄, m, S,
-            )
+        #     adjoint_test(
+        #         (m, S) -> hcat(standard_to_expectation(m, S)...),
+        #         η̄, m, S,
+        #     )
 
-            adjoint_test(
-                (m, U) -> hcat(unconstrained_to_standard(m, UpperTriangular(U))...),
-                η̄, m, U,
-            )
+        #     adjoint_test(
+        #         (m, U) -> hcat(unconstrained_to_standard(m, UpperTriangular(U))...),
+        #         η̄, m, U,
+        #     )
 
-            adjoint_test(
-                U -> Matrix(UpperTriangular(U)'UpperTriangular(U)),
-                randn(rng, D, D), randn(rng, D, D),
-            )
+        #     adjoint_test(
+        #         U -> Matrix(UpperTriangular(U)'UpperTriangular(U)),
+        #         randn(rng, D, D), randn(rng, D, D),
+        #     )
 
-            adjoint_test(
-                (m, U) -> hcat(unconstrained_to_expectation(m, UpperTriangular(U))...),
-                η̄, m, U,
-            )
+        #     adjoint_test(
+        #         (m, U) -> hcat(unconstrained_to_expectation(m, UpperTriangular(U))...),
+        #         η̄, m, U,
+        #     )
 
-            # Compute sensible norm in the first way.
-            _, back_nat_to_exp = Zygote.forward(natural_to_expectation, θ₁, θ₂)
-            θ̄₁, θ̄₂ = back_nat_to_exp((η̄₁, η̄₂))
-            display(hcat(θ̄₁, θ̄₂))
-            println()
+        #     # Compute sensible norm in the first way.
+        #     _, back_nat_to_exp = Zygote.forward(natural_to_expectation, θ₁, θ₂)
+        #     θ̄₁, θ̄₂ = back_nat_to_exp((η̄₁, η̄₂))
+        #     display(hcat(θ̄₁, θ̄₂))
+        #     println()
 
-            norm_1 = dot(θ̄₁, η̄₁) + dot(θ̄₂, η̄₂)
-            @show dot(θ̄₁, η̄₁), dot(θ̄₂, η̄₂)
-            @show norm_1
+        #     norm_1 = dot(θ̄₁, η̄₁) + dot(θ̄₂, η̄₂)
+        #     @show dot(θ̄₁, η̄₁), dot(θ̄₂, η̄₂)
+        #     @show norm_1
 
-            # Compute sensible norm in the second way.
-            _, back_unconstrained_to_expectation = Zygote.forward(
-                unconstrained_to_expectation, m, U,
-            )
-            (m̄, Ū) = back_unconstrained_to_expectation((η̄₁, η̄₂))
+        #     # Compute sensible norm in the second way.
+        #     _, back_unconstrained_to_expectation = Zygote.forward(
+        #         unconstrained_to_expectation, m, U,
+        #     )
+        #     (m̄, Ū) = back_unconstrained_to_expectation((η̄₁, η̄₂))
 
-            _, pushforward_nat_to_uncon = frule(natural_to_unconstrained, θ₁, θ₂)
-            Δm_nat, ΔU_nat = pushforward_nat_to_uncon(DoesNotExist(), η̄₁, η̄₂)
+        #     _, pushforward_nat_to_uncon = frule(natural_to_unconstrained, θ₁, θ₂)
+        #     Δm_nat, ΔU_nat = pushforward_nat_to_uncon(DoesNotExist(), η̄₁, η̄₂)
 
-            @show dot(m̄, Δm_nat), dot(Ū, ΔU_nat)
-            norm_2 = dot(m̄, Δm_nat) + dot(Ū, ΔU_nat)
-            @show norm_2
-        end
+        #     @show dot(m̄, Δm_nat), dot(Ū, ΔU_nat)
+        #     norm_2 = dot(m̄, Δm_nat) + dot(Ū, ΔU_nat)
+        #     @show norm_2
+        # end
         @testset "positive definite tests" begin
             rng = MersenneTwister(123456)
             D = 2
@@ -276,8 +276,7 @@ using Distributions, Zygote
                 J[:, d] .= Δθ
             end
 
-            display(J)
-            println()
+
 
             @test J ≈ J'
             @test all(eigvals(Symmetric(J)) .> 0)
@@ -286,6 +285,9 @@ using Distributions, Zygote
             println()
 
             display(J - J')
+            println()
+
+            display(J)
             println()
         end
     end
