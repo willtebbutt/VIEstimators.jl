@@ -136,8 +136,8 @@ end
 Convert from standard to natural parametrisation.
 """
 function standard_to_natural(m::AbstractVector{<:Real}, S::AbstractMatrix{<:Real})
-    C = cholesky(Symmetric(S))
-    return C \ m, inv(C) ./ (-2)
+    C = chol_inv(S)
+    return C * m, C ./ (-2)
 end
 
 """

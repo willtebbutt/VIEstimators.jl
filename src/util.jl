@@ -52,6 +52,8 @@ ZygoteRules.@adjoint function to_positive_definite_softplus(U::UpperTriangular)
     end
 end
 
+
+
 """
     to_positive_definite_softplus_inv(U::UpperTriangular)
 
@@ -150,7 +152,7 @@ end
 # Helper functionality to make reverse-mode compute the correct thing...
 #
 
-chol_inv(S::AbstractMatrix{<:Real}) = inv(cholesky(-S))
+chol_inv(S::AbstractMatrix{<:Real}) = inv(cholesky(S))
 
 # Specialised rrule for natural_to_standard. This does things in a slightly strange way.
 ZygoteRules.@adjoint function chol_inv(S::AbstractMatrix{<:Real})
