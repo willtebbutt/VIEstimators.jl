@@ -103,27 +103,23 @@ end
 
 Convert from natural to standard parametrisation.
 """
-function natural_to_standard(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
-    # t1 = Symmetric(-θ₂)
-    # # t1 = -θ₂
-    # t2 = cholesky(t1)
-    # S = inv(t2) ./ 2
-    S_ = chol_inv(-2 .* Zygote.@showgrad(θ₂))
-    S = Zygote.@showgrad(S_)
-    return Zygote.@showgrad(S * θ₁), Zygote.@showgrad(S)
+function natural_to_standard(θ₁::AbstractVector{<:Real}, θ₂::Symmetric{<:Real})
+    S = Symmetric(inv(cholesky(-θ₂)) ./ 2)
+    return S * θ₁, S
 end
+
 
 # forwards-mode rule for natural_to_standard. Avoids some repeated computation.
 function frule(
     ::typeof(natural_to_standard),
     θ₁::AbstractVector{<:Real},
-    θ₂::AbstractMatrix{<:Real},
+    θ₂::Symmetric{<:Real},
 )
-    C = cholesky(Symmetric(-θ₂))
-    S = inv(C) ./ 2
+    C = cholesky(-θ₂)
+    S = Symmetric(inv(C) ./ 2)
     m = S * θ₁
     function natural_to_standard_pushforward(Δself, Δθ₁, Δθ₂)
-        ΔS = (C \ Matrix((C \ Δθ₂')')) ./ 2
+        ΔS = Symmetric((C \ Matrix((C \ Δθ₂')')) ./ 2)
         Δm = ΔS * θ₁ + S * Δθ₁
         return (Δm, ΔS)
     end
@@ -131,52 +127,78 @@ function frule(
 end
 
 """
-    standard_to_natural(m::AbstractVector{<:Real}, S::AbstractMatrix{<:Real})
+    standard_to_natural(m::AbstractVector{<:Real}, S::Symmetric{<:Real})
 
 Convert from standard to natural parametrisation.
 """
-function standard_to_natural(m::AbstractVector{<:Real}, S::AbstractMatrix{<:Real})
-    C = chol_inv(S)
-    return C * m, C ./ (-2)
+function standard_to_natural(m::AbstractVector{<:Real}, S::Symmetric{<:Real})
+    C = inv(cholesky(S))
+    return C * m, Symmetric(C ./ (-2))
 end
 
 """
-    expectation_to_standard(η₁::AbstractVector{<:Real}, η₂::AbstractMatrix{<:Real})
+    expectation_to_standard(η₁::AbstractVector{<:Real}, η₂::Symmetric{<:Real})
 
 Convert from expectation to standard parametrisation.
 """
-function expectation_to_standard(η₁::AbstractVector{<:Real}, η₂::AbstractMatrix{<:Real})
-    return η₁, η₂ - η₁ * η₁'
+function expectation_to_standard(η₁::AbstractVector{<:Real}, η₂::Symmetric{<:Real})
+    return η₁, η₂ - Symmetric(η₁ * η₁')
 end
 
 """
-    standard_to_natural(m::AbstractVector{<:Real}, S::AbstractMatrix{<:Real})
+    standard_to_expectation(m::AbstractVector{<:Real}, S::Symmetric{<:Real})
 
 Convert from standard to natural parametrisation.
 """
-function standard_to_expectation(m::AbstractVector{<:Real}, S::AbstractMatrix{<:Real})
-    println(m)
-    return m, S + Zygote.@showgrad(m * m')
+function standard_to_expectation(m::AbstractVector{<:Real}, S::Symmetric{<:Real})
+    return m, Symmetric(S + m * m')
+end
+
+function frule(
+    ::typeof(standard_to_expectation),
+    m::AbstractVector{<:Real},
+    S::Symmetric{<:Real},
+)
+    function standard_to_expectation_pushforward(Δself, Δm, ΔS::Symmetric{<:Real})
+        Δη₁ = Δm
+        Δη₂ = Symmetric(ΔS + m * Δm' + Δm * m')
+        return Δη₁, Δη₂
+    end
+    return standard_to_expectation(m, S), standard_to_expectation_pushforward
 end
 
 """
-    expectation_to_natural(η₁::AbstractVector{<:Real}, η₂::AbstractMatrix{<:Real})
+    expectation_to_natural(η₁::AbstractVector{<:Real}, η₂::Symmetric{<:Real})
 
 Convert from expectation to natural parameters.
 """
-function expectation_to_natural(η₁::AbstractVector{<:Real}, η₂::AbstractMatrix{<:Real})
+function expectation_to_natural(η₁::AbstractVector{<:Real}, η₂::Symmetric{<:Real})
     return standard_to_natural(expectation_to_standard(η₁, η₂)...)
 end
 
 """
-    natural_to_expectation(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
+    natural_to_expectation(θ₁::AbstractVector{<:Real}, θ₂::Symmetric{<:Real})
 
 Convert from natural to expectation parametrisation.
 """
-function natural_to_expectation(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
-    m, S = Zygote.@showgrad(natural_to_standard(θ₁, θ₂))
-    η₁, η₂ = Zygote.@showgrad(standard_to_expectation(m, S))
+function natural_to_expectation(θ₁::AbstractVector{<:Real}, θ₂::Symmetric{<:Real})
+    m, S = natural_to_standard(θ₁, θ₂)
+    η₁, η₂ = standard_to_expectation(m, S)
     return η₁, η₂
+end
+
+function frule(
+    ::typeof(natural_to_expectation),
+    θ₁::AbstractVector{<:Real},
+    θ₂::Symmetric{<:Real},
+)
+    (m, S), nat_to_std_pushforward = frule(natural_to_standard, θ₁, θ₂)
+    (η₁, η₂), std_to_exp_pushforward = frule(standard_to_expectation, m, S)
+    function natural_to_expectation_pushforward(Δself, Δθ₁, Δθ₂::Symmetric)
+        Δm, ΔS = nat_to_std_pushforward(DoesNotExist(), Δθ₁, Δθ₂)
+        return std_to_exp_pushforward(DoesNotExist(), Δm, ΔS)
+    end
+    return (η₁, η₂), natural_to_expectation_pushforward
 end
 
 
@@ -186,24 +208,24 @@ end
 #
 
 """
-    standard_to_unconstrained(m::AbstractVector{<:Real}, S::AbstractMatrix{<:Real})
+    standard_to_unconstrained(m::AbstractVector{<:Real}, S::Symmetric{<:Real})
 
 Convert from standard to mean and unconstrained upper-triangular matrix.
 """
-function standard_to_unconstrained(m::AbstractVector{<:Real}, S::AbstractMatrix{<:Real})
-    return m, to_positive_definite_softplus_inv(chol(Symmetric(S)))
+function standard_to_unconstrained(m::AbstractVector{<:Real}, S::Symmetric{<:Real})
+    return m, to_positive_definite_softplus_inv(chol(S))
 end
 
 function frule(
     ::typeof(standard_to_unconstrained),
     m::AbstractVector{<:Real},
-    S::AbstractMatrix{<:Real},
+    S::Symmetric{<:Real},
 )
     # Perform forwards-pass and retain information required to compute pushforward.
-    U, pushforward_U = frule(chol, Symmetric(S))
+    U, pushforward_U = frule(chol, S)
     V, pushforward_V = frule(to_positive_definite_softplus_inv, U)
 
-    function standard_to_unconstrained_pushforward(Δself, Δm, ΔS)
+    function standard_to_unconstrained_pushforward(Δself, Δm, ΔS::Symmetric{<:Real})
         ΔU = pushforward_U(DoesNotExist(), ΔS)
         ΔV = pushforward_V(DoesNotExist(), ΔU)
         return (Δm, ΔV)
@@ -219,7 +241,7 @@ Convert from mean + unconstrained upper-triangular matrix to standard parametris
 """
 function unconstrained_to_standard(m::AbstractVector{<:Real}, U::UpperTriangular{<:Real})
     UA = to_positive_definite_softplus(U)
-    return m, UA'UA
+    return m, Symmetric(UA'UA)
 end
 
 
@@ -228,19 +250,19 @@ end
 
 Convert from natural to mean and unconstrained upper-triangular matrix.
 """
-function natural_to_unconstrained(θ₁::AbstractVector{<:Real}, θ₂::AbstractMatrix{<:Real})
+function natural_to_unconstrained(θ₁::AbstractVector{<:Real}, θ₂::Symmetric{<:Real})
     return standard_to_unconstrained(natural_to_standard(θ₁, θ₂)...)
 end
 
 function frule(
     ::typeof(natural_to_unconstrained),
     θ₁::AbstractVector{<:Real},
-    θ₂::AbstractMatrix{<:Real},
+    θ₂::Symmetric{<:Real},
 )
     (m_, S), pushforward_standard = frule(natural_to_standard, θ₁, θ₂)
     (m, U), pushforward_unconstrained = frule(standard_to_unconstrained, m_, S)
 
-    function pushforward_natural_to_unconstrained(Δself, Δθ₁, Δθ₂)
+    function pushforward_natural_to_unconstrained(Δself, Δθ₁, Δθ₂::Symmetric{<:Real})
         Δm_, ΔS = pushforward_standard(DoesNotExist(), Δθ₁, Δθ₂)
         return pushforward_unconstrained(DoesNotExist(), Δm_, ΔS)
     end

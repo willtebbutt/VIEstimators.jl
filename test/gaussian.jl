@@ -73,121 +73,131 @@ using Distributions, Zygote
     #     @test logpdf(X, y) ≈ logpdf(X.x1, y.x1) + logpdf(X.x2, y.x2)
     #     @test logpdf(X, Y) ≈ logpdf(X.x1, Y.x1) + logpdf(X.x2, Y.x2)
     # end
-    # @testset "natural parameters" begin
-    #     rng = MersenneTwister(123456)
-    #     D = 3
-    #     m = randn(rng, D)
-    #     A = randn(rng, D, D)
-    #     S = A'A + I
+    @testset "natural parameters" begin
+        rng = MersenneTwister(123456)
+        D = 3
+        m = randn(rng, D)
+        A = randn(rng, D, D)
+        S = Symmetric(A'A + I)
 
-    #     θ₁, θ₂ = standard_to_natural(m, S)
-    #     m′, S′ = natural_to_standard(θ₁, θ₂)
+        θ₁, θ₂ = standard_to_natural(m, S)
+        m′, S′ = natural_to_standard(θ₁, θ₂)
 
-    #     @test m ≈ m′
-    #     @test S ≈ S′
+        @test m ≈ m′
+        @test S ≈ S′
 
-    #     Δθ₁ = randn(rng, D)
+        Δθ₁ = randn(rng, D)
 
-    #     A_ = randn(rng, D, D)
-    #     Δθ₂ = A_ * A_' + I
-    #     frule_test(natural_to_standard, (θ₁, Δθ₁), (θ₂, Δθ₂); fdm=backward_fdm(5, 1))
-    # end
-    # @testset "expectation parameters" begin
-    #     rng = MersenneTwister(123456)
-    #     D = 3
-    #     m = randn(rng, D)
-    #     A = randn(rng, D, D)
-    #     S = A'A + I
+        A_ = randn(rng, D, D)
+        Δθ₂ = Symmetric(A_ * A_' + I)
+        frule_test(natural_to_standard, (θ₁, Δθ₁), (θ₂, Δθ₂); fdm=backward_fdm(5, 1))
+    end
+    @testset "expectation parameters" begin
+        rng = MersenneTwister(123456)
+        D = 3
+        m = randn(rng, D)
+        A = randn(rng, D, D)
+        S = Symmetric(A'A + I)
 
-    #     θ₁, θ₂ = standard_to_expectation(m, S)
-    #     m′, S′ = expectation_to_standard(θ₁, θ₂)
+        θ₁, θ₂ = standard_to_expectation(m, S)
+        m′, S′ = expectation_to_standard(θ₁, θ₂)
 
-    #     @test m ≈ m′
-    #     @test S ≈ S′
-    # end
-    # @testset "expectation / natural parameters conversions" begin
-    #     rng = MersenneTwister(123456)
-    #     D = 3
-    #     m = randn(rng, D)
-    #     A = randn(rng, D, D)
-    #     S = A'A + I
+        @test m ≈ m′
+        @test S ≈ S′
 
-    #     @testset "natural to expectation" begin
-    #         θ₁, θ₂ = standard_to_natural(m, S)
-    #         η₁, η₂ = natural_to_expectation(θ₁, θ₂)
-    #         m′, S′ = expectation_to_standard(η₁, η₂)
-    #         @test m ≈ m′
-    #         @test S ≈ S′
-    #     end
+        Δm = randn(rng, D)
+        ΔS_root = randn(rng, D, D)
+        ΔS = Symmetric(ΔS_root * ΔS_root' + I)
+        frule_test(standard_to_expectation, (m, Δm), (S, ΔS); fdm=forward_fdm(5, 1))
+    end
+    @testset "expectation / natural parameters conversions" begin
+        rng = MersenneTwister(123456)
+        D = 3
+        m = randn(rng, D)
+        A = randn(rng, D, D)
+        S = Symmetric(A'A + I)
 
-    #     @testset "expectation to natural" begin
-    #         η₁, η₂ = standard_to_expectation(m, S)
-    #         θ₁, θ₂ = expectation_to_natural(η₁, η₂)
-    #         m′, S′ = natural_to_standard(θ₁, θ₂)
-    #         @test m ≈ m′
-    #         @test S ≈ S′
-    #     end
-    # end
+        @testset "natural to expectation" begin
+            θ₁, θ₂ = standard_to_natural(m, S)
+            η₁, η₂ = natural_to_expectation(θ₁, θ₂)
+            m′, S′ = expectation_to_standard(η₁, η₂)
+            @test m ≈ m′
+            @test S ≈ S′
+
+            Δθ₁ = randn(rng, D)
+            Δθ₂_root = randn(rng, D, D)
+            Δθ₂ = Symmetric(Δθ₂_root * Δθ₂_root' + I)
+            frule_test(natural_to_expectation, (θ₁, Δθ₁), (θ₂, Δθ₂); fdm=backward_fdm(5, 1))
+        end
+
+        @testset "expectation to natural" begin
+            η₁, η₂ = standard_to_expectation(m, S)
+            θ₁, θ₂ = expectation_to_natural(η₁, η₂)
+            m′, S′ = natural_to_standard(θ₁, θ₂)
+            @test m ≈ m′
+            @test S ≈ S′
+        end
+    end
     @testset "unconstrained" begin
         rng = MersenneTwister(123456)
         D = 3
         m = randn(rng, D)
         U = UpperTriangular(randn(rng, D, D))
 
-        # @testset "standard is psd" begin
-        #     _, S = unconstrained_to_standard(m, U)
-        #     @test all(eigvals(S) .> 0)
-        # end
-        # @testset "standard_to_unconstrained" begin
+        @testset "standard is psd" begin
+            _, S = unconstrained_to_standard(m, U)
+            @test all(eigvals(S) .> 0)
+        end
+        @testset "standard_to_unconstrained" begin
 
-        #     # Ensure inverse is correct.
-        #     ms, Ss = unconstrained_to_standard(m, U)
-        #     m′, U′ = standard_to_unconstrained(ms, Ss)
-        #     @test m ≈ m′
-        #     @test U ≈ U′
+            # Ensure inverse is correct.
+            ms, Ss = unconstrained_to_standard(m, U)
+            m′, U′ = standard_to_unconstrained(ms, Ss)
+            @test m ≈ m′
+            @test U ≈ U′
 
-        #     # Use positive definite forwards sensitivity to test Ss.
-        #     Δms = randn(rng, length(ms))
-        #     _ΔSs = randn(rng, size(Ss))
-        #     ΔSs = _ΔSs * _ΔSs' + I
+            # Use positive definite forwards sensitivity to test Ss.
+            Δms = randn(rng, length(ms))
+            _ΔSs = randn(rng, size(Ss))
+            ΔSs = Symmetric(_ΔSs * _ΔSs' + I)
 
-        #     fdm = forward_fdm(5, 1)
-        #     frule_test(standard_to_unconstrained, (ms, Δms), (Ss, ΔSs); fdm=fdm)
-        # end
-        # @testset "natural is nsd" begin
-        #     θ₁, θ₂ = unconstrained_to_natural(m, U)
-        #     @test all(eigvals(θ₂) .< 0)
-        # end
-        # @testset "natural_to_unconstrained" begin
-        #     m′, U′ = natural_to_unconstrained(unconstrained_to_natural(m, U)...)
-        #     @test m ≈ m′
-        #     @test U ≈ U′
+            fdm = forward_fdm(5, 1)
+            frule_test(standard_to_unconstrained, (ms, Δms), (Ss, ΔSs); fdm=fdm)
+        end
+        @testset "natural is nsd" begin
+            θ₁, θ₂ = unconstrained_to_natural(m, U)
+            @test all(eigvals(θ₂) .< 0)
+        end
+        @testset "natural_to_unconstrained" begin
+            m′, U′ = natural_to_unconstrained(unconstrained_to_natural(m, U)...)
+            @test m ≈ m′
+            @test U ≈ U′
 
-        #     θ₁, θ₂ = unconstrained_to_natural(m, U)
-        #     θ₁_comp, θ₂_comp = standard_to_natural(unconstrained_to_standard(m, U)...)
-        #     @test θ₁_comp ≈ θ₁
-        #     @test θ₂_comp ≈ θ₂
+            θ₁, θ₂ = unconstrained_to_natural(m, U)
+            θ₁_comp, θ₂_comp = standard_to_natural(unconstrained_to_standard(m, U)...)
+            @test θ₁_comp ≈ θ₁
+            @test θ₂_comp ≈ θ₂
 
-        #     Δθ₁ = randn(rng, length(θ₁))
-        #     Δθ₂_ = randn(rng, size(θ₂))
-        #     Δθ₂ = Δθ₂_ * Δθ₂_'
-        #     fdm = backward_fdm(5, 1)
-        #     frule_test(natural_to_unconstrained, (θ₁, Δθ₁), (θ₂, Δθ₂); fdm=fdm)
-        # end
-        # @testset "expectation is psd" begin
-        #     _, S = unconstrained_to_expectation(m, U)
-        #     @test all(eigvals(S) .> 0)
-        # end
-        # @testset "expectation_to_unconstrained" begin
-        #     m′, U′ = expectation_to_unconstrained(unconstrained_to_expectation(m, U)...)
-        #     @test m ≈ m′
-        #     @test U ≈ U′
+            Δθ₁ = randn(rng, length(θ₁))
+            Δθ₂_ = randn(rng, size(θ₂))
+            Δθ₂ = Symmetric(Δθ₂_ * Δθ₂_')
+            fdm = backward_fdm(5, 1)
+            frule_test(natural_to_unconstrained, (θ₁, Δθ₁), (θ₂, Δθ₂); fdm=fdm)
+        end
+        @testset "expectation is psd" begin
+            _, S = unconstrained_to_expectation(m, U)
+            @test all(eigvals(S) .> 0)
+        end
+        @testset "expectation_to_unconstrained" begin
+            m′, U′ = expectation_to_unconstrained(unconstrained_to_expectation(m, U)...)
+            @test m ≈ m′
+            @test U ≈ U′
 
-        #     η₁, η₂ = unconstrained_to_expectation(m, U)
-        #     η₁_comp, η₂_comp = standard_to_expectation(unconstrained_to_standard(m, U)...)
-        #     @test η₁ ≈ η₁_comp
-        #     @test η₂ ≈ η₂_comp
-        # end
+            η₁, η₂ = unconstrained_to_expectation(m, U)
+            η₁_comp, η₂_comp = standard_to_expectation(unconstrained_to_standard(m, U)...)
+            @test η₁ ≈ η₁_comp
+            @test η₂ ≈ η₂_comp
+        end
         # @testset "natural gradient tests" begin
         #     rng = MersenneTwister(123456)
         #     D = 3
@@ -224,7 +234,7 @@ using Distributions, Zygote
         #     )
 
         #     # Compute sensible norm in the first way.
-        #     _, back_nat_to_exp = Zygote.forward(natural_to_expectation, θ₁, θ₂)
+        #     _, back_nat_to_exp = Zygote.pullback(natural_to_expectation, θ₁, θ₂)
         #     θ̄₁, θ̄₂ = back_nat_to_exp((η̄₁, η̄₂))
         #     display(hcat(θ̄₁, θ̄₂))
         #     println()
@@ -234,7 +244,7 @@ using Distributions, Zygote
         #     @show norm_1
 
         #     # Compute sensible norm in the second way.
-        #     _, back_unconstrained_to_expectation = Zygote.forward(
+        #     _, back_unconstrained_to_expectation = Zygote.pullback(
         #         unconstrained_to_expectation, m, U,
         #     )
         #     (m̄, Ū) = back_unconstrained_to_expectation((η̄₁, η̄₂))
@@ -246,20 +256,22 @@ using Distributions, Zygote
         #     norm_2 = dot(m̄, Δm_nat) + dot(Ū, ΔU_nat)
         #     @show norm_2
         # end
+
+
         @testset "positive definite tests" begin
             rng = MersenneTwister(123456)
             D = 2
 
             function expectation_to_natural_vec(η)
                 η₁ = η[1:D]
-                η₂ = reshape(η[D+1:end], D, D)
+                η₂ = Symmetric(reshape(η[D+1:end], D, D))
                 θ₁, θ₂ = expectation_to_natural(η₁, η₂)
                 return vec(hcat(θ₁, θ₂))
             end
 
             function natural_to_expectation_vec(θ)
                 θ₁ = θ[1:D]
-                θ₂ = reshape(θ[D+1:end], D, D)
+                θ₂ = Symmetric(reshape(θ[D+1:end], D, D))
                 η₁, η₂ = natural_to_expectation(θ₁, θ₂)
                 return vec(hcat(η₁, η₂))
             end
@@ -301,6 +313,7 @@ using Distributions, Zygote
 
             J = Matrix{Float64}(undef, length(θ), length(θ))
             Jinv = Matrix{Float64}(undef, length(θ), length(θ))
+            Jforward = Matrix{Float64}(undef, length(θ), length(θ))
             for d in eachindex(θ)
 
                 println("d = $d")
@@ -311,40 +324,67 @@ using Distributions, Zygote
                 Δη[d] = 1.0
 
                 # Compute dth column of J
-                _, back = Zygote.forward(natural_to_expectation_vec, θ)
+                _, back = Zygote.pullback(natural_to_expectation_vec, θ)
                 Δθ = first(back(Δη))
                 J[:, d] .= Δθ
 
-                _, back = Zygote.forward(expectation_to_natural_vec, η)
+                # Compute dth column of Jinv
+                _, back = Zygote.pullback(expectation_to_natural_vec, η)
                 Jinv[:, d] = first(back(Δη))
+
+                # # Compute dth column of Jforward
+                # Δθ = Δη
+                # Δθ₁ = Δθ[1:D]
+                # Δθ₂ = reshape(Δθ[D+1:end], D, D)
+                # @show Δθ₁
+                # @show Δθ₂
+                # _, pf = frule(natural_to_expectation, θ₁, θ₂)
+                # Δη₁, Δη₂ = pf(DoesNotExist(), Δθ₁, Δθ₂)
+                # Jforward[1:D, d] = Δη₁
+                # Jforward[D+1:end, d] = vec(Δη₂)
 
                 println()
                 println()
                 println()
             end
 
-            display(eigvals(Symmetric(Matrix(LowerTriangular(J)))))
+            println("J'")
+            display(J)
+            println()
+            inds = vcat(1:3, 5:6)
+            display(J[inds, inds])
             println()
 
-            println("J'")
-            display(J')
+            display(J - J')
             println()
 
             println("Jinv")
             display(Jinv)
             println()
 
-            display(eigvals(Jinv))
-            println()
 
-            display(J - inv(Jinv))
+            display(J[inds, inds] - inv(Jinv[inds, inds]))
             println()
+            @show eigvals(J[inds, inds])
 
+
+            # println("Jforward")
+            # display(Jforward)
+            # println()
+
+            # display(Jforward - Jforward')
+            # println()
+
+            # display(eigvals(Jforward))
+            # println()
+
+            # display(Jforward - J')
+            # println()
             
 
 
             v = randn(length(θ))
-            _, back = Zygote.forward(natural_to_expectation_vec, θ)
+            _, back = Zygote.pullback(natural_to_expectation_vec, θ)
             @test first(back(v))'v ≈ v' * (J * v)
 
             @test J ≈ J'
@@ -358,7 +398,7 @@ using Distributions, Zygote
             #     Δη[d] = 1.0
 
             #     # Compute dth column of J
-            #     _, back = Zygote.forward(expectation_mat_vec, vec(θ₂))
+            #     _, back = Zygote.pullback(expectation_mat_vec, vec(θ₂))
             #     Δθ₂ = first(back(Δη))
             #     J_mat[:, d] .= Δθ₂
             # end
@@ -384,7 +424,7 @@ using Distributions, Zygote
             #     Δη[d] = 1.0
 
             #     # Compute dth column of J
-            #     _, back = Zygote.forward(natural_to_standard_vec, θ)
+            #     _, back = Zygote.pullback(natural_to_standard_vec, θ)
             #     Δθ = first(back(Δη))
             #     J_stn[:, d] .= Δθ
 
@@ -404,7 +444,7 @@ using Distributions, Zygote
             #     Δη[d] = 1.0
 
             #     # Compute dth column of J
-            #     _, back = Zygote.forward(standard_to_expectation_vec, θ_std)
+            #     _, back = Zygote.pullback(standard_to_expectation_vec, θ_std)
             #     Δθ = first(back(Δη))
             #     J_exp[:, d] .= Δθ
 

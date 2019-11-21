@@ -124,7 +124,7 @@ chol(A::Symmetric) = cholesky(A).U
 
 function frule(::typeof(chol), A::Symmetric{T, Matrix{T}} where {T<:Real})
     U = chol(A)
-    function chol_pushforward(Δself, ΔA)
+    function chol_pushforward(Δself, ΔA::Symmetric)
         T = U' \ (U' \ ΔA')'
         T = UpperTriangular(T)
         T[diagind(T)] ./= 2
@@ -141,21 +141,41 @@ end
 
 ZygoteRules.@adjoint function inv(C::Cholesky{<:Real})
     Cinv = inv(C)
-    return Cinv, function(Δ::AbstractMatrix{<:Real})
-        return ((factors=UpperTriangular(-(C.U' \ (Δ + Δ')) * Cinv),),)
+    return Cinv, function(Δ)
+        return ((factors=-(C.U' \ (Δ + Δ')) * Cinv,),)
     end
 end
 
 
 
+# #
+# # Helper functionality to make reverse-mode compute the correct thing...
+# #
+
+# chol_inv(S::Symmetric{<:Real}) = inv(cholesky(S))
+
+# # Specialised rrule for natural_to_standard. This does things in a slightly strange way.
+# ZygoteRules.@adjoint function chol_inv(S::Symmetric{<:Real})
+#     Sinv = inv(cholesky(S))
+#     return Sinv, Δ::AbstractMatrix{<:Real} -> (-Sinv'Δ * Sinv',)
+# end
+
+
+
 #
-# Helper functionality to make reverse-mode compute the correct thing...
+# cholesky specifically for Symmetric matrices.
 #
 
-chol_inv(S::AbstractMatrix{<:Real}) = inv(cholesky(S))
-
-# Specialised rrule for natural_to_standard. This does things in a slightly strange way.
-ZygoteRules.@adjoint function chol_inv(S::AbstractMatrix{<:Real})
-    Sinv = inv(cholesky(S))
-    return Sinv, Δ::AbstractMatrix{<:Real} -> (-Sinv'Δ * Sinv',)
+# Implementation due to Seeger, Matthias, et al. "Auto-differentiating linear algebra."
+ZygoteRules.@adjoint function cholesky(Σ::Symmetric{T, <:StridedMatrix{T}} where {T<:Real})
+  C = cholesky(Σ)
+  return C, function(Δ::NamedTuple)
+    U, Ū = C.U, Δ.factors
+    ΔΣ = Ū * U'
+    ΔΣ = LinearAlgebra.copytri!(ΔΣ, 'U')
+    ΔΣ = ldiv!(U, ΔΣ)
+    BLAS.trsm!('R', 'U', 'T', 'N', one(eltype(Σ)), U.data, ΔΣ)
+    ΔΣ ./= 2
+    return (Symmetric(ΔΣ),)
+  end
 end

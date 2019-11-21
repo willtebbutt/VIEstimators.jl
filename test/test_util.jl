@@ -53,7 +53,7 @@ function adjoint_test(
     test=true,
 )
     # Compute forwards-pass and j′vp.
-    y, back = Zygote.forward(f, x...)
+    y, back = Zygote.pullback(f, x...)
     adj_ad = back(ȳ)
     adj_fd = j′vp(fdm, f, ȳ, x...)
 
@@ -107,7 +107,7 @@ function frule_test(f, xẋs::Tuple{Any, Any}...; rtol=1e-9, atol=1e-9, fdm=cent
     ensure_not_running_on_functor(f, "frule_test")
     xs, ẋs = collect(zip(xẋs...))
     Ω, pushforward = ChainRulesCore.frule(f, xs...)
-    @test f(xs...) == Ω
+    @test fd_isapprox(f(xs...), Ω, rtol, atol)
     dΩ_ad = pushforward(NamedTuple(), ẋs...)
 
     # Correctness testing via finite differencing.
