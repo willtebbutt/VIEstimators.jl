@@ -42,7 +42,7 @@ using VIEstimators: chol
     end
     @testset "chol" begin
         rng = MersenneTwister(123456)
-        D = 2
+        D = 3
 
         # Check correctness of chol. Should be trivial.
         U_A = to_positive_definite_softplus(UpperTriangular(randn(rng, D, D)))
@@ -54,4 +54,28 @@ using VIEstimators: chol
         ΔA = Symmetric(ΔU_A'ΔU_A)
         frule_test(chol, (A, ΔA); fdm=forward_fdm(5, 1))
     end
+    @testset "inv(::Cholesky)" begin
+        rng = MersenneTwister(123456)
+        D = 3
+
+        A = randn(rng, D, D)
+        adjoint_test(A->inv(cholesky(Symmetric(A'A + I))), randn(rng, D, D), A)
+    end
+    # @testset "chol_inv(::AbstractMatrix{<:Real})" begin
+    #     rng = MersenneTwister(123456)
+    #     D = 3
+
+    #     A = randn(rng, D, D)
+    #     S = Symmetric(A'A + I)
+    #     ΔS = randn(rng, D, D)
+
+    #     S_inv, back_inv = Zygote.pullback(inv, S)
+    #     Δ_inv = first(back_inv(ΔS))
+
+    #     S_chol_inv, back_chol_inv = Zygote.pullback(VIEstimators.chol_inv, S)
+    #     Δ_chol_inv = first(back_chol_inv(ΔS))
+
+    #     @test S_inv ≈ S_chol_inv
+    #     @test Δ_inv ≈ Δ_chol_inv
+    # end
 end

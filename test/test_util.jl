@@ -52,14 +52,10 @@ function adjoint_test(
     print_results=false,
     test=true,
 )
-
     # Compute forwards-pass and j′vp.
-    y, back = Zygote.forward(f, x...)
+    y, back = Zygote.pullback(f, x...)
     adj_ad = back(ȳ)
     adj_fd = j′vp(fdm, f, ȳ, x...)
-
-    # If unary, pull out first thing from ad.
-    adj_ad = length(x) == 1 ? first(adj_ad) : adj_ad
 
     # Check that forwards-pass agrees with plain forwards-pass.
     test && @test y ≈ f(x...)
@@ -83,8 +79,6 @@ function print_adjoints(adjoint_ad, adjoint_fd, rtol, atol)
 end
 
 
-const _fdm = central_fdm(5, 1)
-
 function ensure_not_running_on_functor(f, name)
     # if x itself is a Type, then it is a constructor, thus not a functor.
     # This also catchs UnionAll constructors which have a `:var` and `:body` fields
@@ -105,15 +99,15 @@ end
 - `ẋ`: differential w.r.t. `x` (should generally be set randomly).
 All keyword arguments except for `fdm` are passed to `isapprox`.
 """
-function frule_test(f, (x, ẋ); rtol=1e-9, atol=1e-9, fdm=_fdm, kwargs...)
+function frule_test(f, (x, ẋ); rtol=1e-9, atol=1e-9, fdm=central_fdm(5, 1), kwargs...)
     return frule_test(f, ((x, ẋ),); rtol=rtol, atol=atol, fdm=fdm, kwargs...)
 end
 
-function frule_test(f, xẋs::Tuple{Any, Any}...; rtol=1e-9, atol=1e-9, fdm=_fdm, kwargs...)
+function frule_test(f, xẋs::Tuple{Any, Any}...; rtol=1e-9, atol=1e-9, fdm=central_fdm(5, 1), kwargs...)
     ensure_not_running_on_functor(f, "frule_test")
     xs, ẋs = collect(zip(xẋs...))
     Ω, pushforward = ChainRulesCore.frule(f, xs...)
-    @test f(xs...) == Ω
+    @test fd_isapprox(f(xs...), Ω, rtol, atol)
     dΩ_ad = pushforward(NamedTuple(), ẋs...)
 
     # Correctness testing via finite differencing.
